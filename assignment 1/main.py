@@ -1,8 +1,7 @@
 import sys
 import zipfile
-import zipfile
 
-# Define token types
+# Token types
 LPAREN = '('
 RPAREN = ')'
 LAMBDA = '\\'
@@ -144,12 +143,25 @@ class Interpreter:
                 return (APP, left, right)
 
 
+
 def read_zip_file(file_path):
     with zipfile.ZipFile(file_path, 'r') as zip_file:
         for file_name in zip_file.namelist():
             with zip_file.open(file_name) as file:
-                # Do something with the file contents
-                print(file.read())
+                # Read the file contents
+                content = file.read().decode('utf-8')
+
+                # Create lexer, parser, and interpreter objects
+                lexer = Lexer(content)
+                parser = Parser(lexer)
+                interpreter = Interpreter()
+
+                # Parse and evaluate the expression
+                expr = parser.expr()
+                result = interpreter.eval(expr)
+
+                # Print the result
+                print(result)
 
 
 def main():
@@ -162,7 +174,11 @@ def main():
     file_name = input("Enter the name of the zip file: ")
     # read_zip_file(file_name)
     # print(result)
-    print(read_zip_file(file_name))
+    try:
+        read_zip_file(file_name)
+    except:
+        return 1
+    return 0
 
 if __name__ == '__main__':
     main()
