@@ -1,182 +1,121 @@
-import sys
 import zipfile
 
 # Token types
-LPAREN = '('
-RPAREN = ')'
-LAMBDA = '\\'
-VAR = 'var'
-APP = 'app'
-EOF = 'eof'
+VAR = 'VAR'
+LPAREN = 'LPAREN'
+RPAREN = 'RPAREN'
+LAMBDA = 'LAMBDA'
+SEPARATOR = 'SEPARATOR'
 
-class Token:
-    def __init__(self, type, value=None):
-        self.type = type
-        self.value = value
+def lexer(input_string):
+    tokens = []
+    current_token = ''
 
-    def __repr__(self):
-        if self.value:
-            return f'Token({self.type}, {self.value})'
+    for char in input_string:
+        if char.isalnum():
+            current_token += char
         else:
-            return f'Token({self.type})'
+            if current_token:
+                tokens.append((VAR, current_token))
+                current_token = ''
 
-class Lexer:
-    def __init__(self, text):
-        self.text = text
-        self.pos = 0
-        self.current_char = self.text[self.pos]
+            if char == '(':
+                tokens.append((LPAREN, char))
+            elif char == ')':
+                tokens.append((RPAREN, char))
+            elif char == '\\':
+                tokens.append((LAMBDA, char))
+            elif char == ';':
+                tokens.append((SEPARATOR, char))
 
-    def error(self):
-        raise Exception('Invalid character')
+    # Check for the last token if any
+    if current_token:
+        tokens.append((VAR, current_token))
 
-    def advance(self):
-        self.pos += 1
-        if self.pos > len(self.text) - 1:
-            self.current_char = None
-        else:
-            self.current_char = self.text[self.pos]
-
-    def skip_whitespace(self):
-        while self.current_char is not None and self.current_char.isspace():
-            self.advance()
-
-    def get_var(self):
-        result = ''
-        while self.current_char is not None and self.current_char.isalnum():
-            result += self.current_char
-            self.advance()
-        return result
-
-    def get_next_token(self):
-        while self.current_char is not None:
-            if self.current_char.isspace():
-                self.skip_whitespace()
-                continue
-
-            if self.current_char == LPAREN:
-                self.advance()
-                return Token(LPAREN)
-
-            if self.current_char == RPAREN:
-                self.advance()
-                return Token(RPAREN)
-
-            if self.current_char == LAMBDA:
-                self.advance()
-                var = self.get_var()
-                return Token(LAMBDA, var)
-
-            if self.current_char.isalpha():
-                var = self.get_var()
-                return Token(VAR, var)
-
-            self.error()
-
-        return Token(EOF)
-
-class Parser:
-    def __init__(self, lexer):
-        self.lexer = lexer
-        self.current_token = self.lexer.get_next_token()
-
-    def error(self):
-        raise Exception('Invalid syntax')
-
-    def eat(self, token_type):
-        if self.current_token.type == token_type:
-            self.current_token = self.lexer.get_next_token()
-        else:
-            self.error()
-
-    def var(self):
-        token = self.current_token
-        self.eat(VAR)
-        return token.value
-
-    def factor(self):
-        token = self.current_token
-        if token.type == LPAREN:
-            self.eat(LPAREN)
-            expr = self.expr()
-            self.eat(RPAREN)
-            return expr
-        elif token.type == LAMBDA:
-            self.eat(LAMBDA)
-            var = self.var()
-            self.eat('.')
-            expr = self.expr()
-            return (LAMBDA, var, expr)
-        elif token.type == VAR:
-            return self.var()
-
-    def term(self):
-        left = self.factor()
-
-        while self.current_token.type == APP:
-            self.eat(APP)
-            right = self.factor()
-            left = (APP, left, right)
-
-        return left
-
-    def expr(self):
-        return self.term()
-
-class Interpreter:
-    def __init__(self):
-        pass
-
-    def eval(self, expr, env=None):
-        if env is None:
-            env = {}
-
-        if isinstance(expr, str):
-            return env.get(expr, expr)
-        elif expr[0] == LAMBDA:
-            return (LAMBDA, expr[1], self.eval(expr[2], env))
-        elif expr[0] == APP:
-            left = self.eval(expr[1], env)
-            right = self.eval(expr[2], env)
-            if left[0] == LAMBDA:
-                return self.eval(left[2], {**env, left[1]: right})
-            else:
-                return (APP, left, right)
-
-
+    return tokens
 
 def read_zip_file(file_path):
+    contents = ""  # Initialize an empty string to store the contents
     with zipfile.ZipFile(file_path, 'r') as zip_file:
         for file_name in zip_file.namelist():
             with zip_file.open(file_name) as file:
-                # Read the file contents
+                # Read the file contents and append to the string
                 content = file.read().decode('utf-8')
+                contents += content
+    return contents
 
-                # Create lexer, parser, and interpreter objects
-                lexer = Lexer(content)
-                parser = Parser(lexer)
-                interpreter = Interpreter()
+def parser(tokens):
+    expr = parse_expr(tokens)
+    return expr
 
-                # Parse and evaluate the expression
-                expr = parser.expr()
-                result = interpreter.eval(expr)
+def parse_expr(tokens):
+    if len(tokens) == 0:
+        raise SyntaxError("Unexpected end of input")
 
-                # Print the result
-                print(result)
+    if type(tokens[0]) == VAR:
+        return tokens.pop(0)
 
+    if tokens[0] == LPAREN:
+        tokens.pop(0)
+        expr = parse_expr(tokens)
+        if tokens[0] == RPAREN:
+            tokens.pop(0)
+            return expr
+        else:
+            raise SyntaxError("Expected ')'")
+
+    if tokens[0] == LAMBDA:
+        name = "lambda"
+        tokens.pop(0)
+        var = parse_expr(tokens)
+        if tokens[0] != LPAREN:
+            raise SyntaxError("Expected '(' after lambda abstraction")
+        tokens.pop(0)
+        expr = parse_expr(tokens)
+        if tokens[0] != RPAREN:
+            raise SyntaxError("Expected ')' after lambda expression")
+        tokens.pop(0)
+        return lambda var: expr
+
+    if tokens[0] == LAMBDA:
+        tokens.pop(0)
+        var = parse_expr(tokens)
+        if tokens[0] != LPAREN:
+            raise SyntaxError("Expected '(' after lambda abstraction")
+        tokens.pop(0)
+        expr = parse_expr(tokens)
+        if tokens[0] != RPAREN:
+            raise SyntaxError("Expected ')' after lambda expression")
+        tokens.pop(0)
+        return lambda var: expr
+
+def to_standard_format(expr):
+    if type(expr) == str:
+        return expr
+    elif type(expr) == type(lambda x: x):
+        var = expr.__var__
+        expr = expr(var)
+        return f"(λ{var}. {expr})"
+    else:
+        raise TypeError(f"Invalid expression type: {type(expr)}")
+
+def output(expr):
+    standard_format_expr = to_standard_format(expr)
+    print(standard_format_expr)
 
 def main():
-    # text = input("Enter the lambda calculus expression: ")
-    # lexer = Lexer(text)
-    # parser = Parser(lexer)
-    # interpreter = Interpreter()
-    # expr = parser.expr()
-    # result = interpreter.eval(expr)
     file_name = input("Enter the name of the zip file: ")
-    # read_zip_file(file_name)
-    # print(result)
     try:
-        read_zip_file(file_name)
-    except:
+        contents = read_zip_file(file_name)
+        
+        # test
+        # print(contents) 
+        tokens = lexer(contents)
+        expr = parser(tokens)
+        output(expr)
+    except Exception as e:
+        print(f"Error: {e}")
+        print("Exiting...")
         return 1
     return 0
 
