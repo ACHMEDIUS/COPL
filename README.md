@@ -8,4 +8,5 @@
 # Applications are represented by the function name followed by a space, followed by the argument.
 # For example, the expression (λx. x + 1) 3 would be represented as λx. x + 1 3 in the standard format.
 # <h3>2. λ-calculus interpreter</h3>
+# For this assignment, the lambda character is represented by "λ".
 # <h3>3. λ-calculus type checker</h3>

@@ -4,6 +4,20 @@ LPAREN = 'LPAREN'
 RPAREN = 'RPAREN'
 LAMBDA = 'LAMBDA'
 SEPARATOR = 'SEPARATOR'
+PLUS = 'PLUS'
+STAR = 'STAR'
+DOT = 'DOT'
+
+# Token values
+TOKEN_VALUES = {
+    LPAREN: '(',
+    RPAREN: ')',
+    LAMBDA: 'λ',
+    SEPARATOR: ';',
+    PLUS: '+',
+    STAR: '*',
+    DOT: '.'
+}
 
 def lexer(input_string):
     tokens = []
@@ -21,10 +35,16 @@ def lexer(input_string):
                 tokens.append((LPAREN, char))
             elif char == ')':
                 tokens.append((RPAREN, char))
-            elif char == '\\':
+            elif char == 'λ':
                 tokens.append((LAMBDA, char))
             elif char == ';':
                 tokens.append((SEPARATOR, char))
+            elif char == '+':
+                tokens.append((PLUS, char))
+            elif char == '*':
+                tokens.append((STAR, char))
+            elif char == '.':
+                tokens.append((DOT, char))
 
     # Check for the last token if any
     if current_token:
@@ -37,33 +57,42 @@ def parser(tokens):
     return expr
 
 def parse_expr(tokens):
-    if len(tokens) == 0:
+    if not tokens:
         raise SyntaxError("Unexpected end of input")
+    
+    token_type, token_value = tokens[0]
 
-    if type(tokens[0][1]) == VAR:
-        return tokens.pop(0)
+    if token_type == VAR:
+        tokens.pop(0)  # Remove the variable token
+        return (VAR, token_value)  # Return a tuple representing the variable
 
     if tokens[0][1] == LPAREN:
         tokens.pop(0)
+        if not tokens:
+            raise SyntaxError("Expected expression after '('")
         expr = parse_expr(tokens)
-        if tokens[0][1] == RPAREN:
-            tokens.pop(0)
-            return expr
-        else:
+        if not tokens or tokens[0][1] != RPAREN:
             raise SyntaxError("Expected ')'")
+        tokens.pop(0)
+        return expr
 
     if tokens[0][1] == LAMBDA:
-        name = "lambda"
         tokens.pop(0)
+        if not tokens:
+            raise SyntaxError("Expected variable after 'λ'")
         var = parse_expr(tokens)
-        if tokens[0][1] != LPAREN:
-            raise SyntaxError("Expected '(' after lambda abstraction")
+        if not tokens or tokens[0][1] != LPAREN:
+            raise SyntaxError("Expected '(' after variable in lambda")
         tokens.pop(0)
+        if not tokens:
+            raise SyntaxError("Expected expression after '(' in lambda")
         expr = parse_expr(tokens)
-        if tokens[0][1] != RPAREN:
+        if not tokens or tokens[0][1] != RPAREN:
             raise SyntaxError("Expected ')' after lambda expression")
         tokens.pop(0)
         return lambda var: expr
+
+    raise SyntaxError("Unexpected token")
 
 def to_standard_format(expr):
     if type(expr[1]) == str:
@@ -77,17 +106,17 @@ def to_standard_format(expr):
 
 def output(expr):
     standard_format_expr = to_standard_format(expr)
-    print(standard_format_expr)
+    print(f"The standard format is: {standard_format_expr}")
 
 def main():
-    input_string = input("Enter the lambda calculus expression: ")
+    input_string = input("Enter the expression: ")
     try:
         tokens = lexer(input_string)
         expr = parser(tokens)
         output(expr)
     except Exception as e:
         print(f"Error: {e}")
-        print("Exiting...")
+        print("Exiting")
         return 1
     return 0
 
