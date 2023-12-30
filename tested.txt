@@ -1,0 +1,15 @@
+input -> output
+Assignment 1:
+(a b) -> ab
+abc -> abc
+a b c -> abc
+a (b c) -> abc
+(λ x a b) -> λx.ab
+(λx((a) (b))) -> λx.ab
+Assignment 2:
+(x y) -> xy
+λxλy(xλz y) c -> λx.λy.(xλz.)c
+(λx x)(λy y) -> yy
+(λx λy x)(λz y) f -> λw.λz.y
+(λx y)((λx (x x))(λx (x x))) -> y
+(λx x x)(λx x x) -> xx

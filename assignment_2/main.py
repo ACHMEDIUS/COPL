@@ -1,6 +1,7 @@
 import zipfile
 import tarfile
 import os
+import sys
 
 # Token types
 VAR = 'VAR'
@@ -23,6 +24,10 @@ TOKEN_VALUES = {
     DOT: '.'
 }
 
+# @function lexer
+# @param input_string str
+# @pre input_string is a string to be tokenized
+# @post returns a list of tokens created from the input string
 def lexer(input_string):
     tokens = []
     current_token = ''
@@ -30,11 +35,11 @@ def lexer(input_string):
     for char in input_string:
         print(f"Processing character: {char}")  # Debugging output
 
-        if char == 'λ':
+        if char == 'λ' or char == '\\':
             if current_token:
                 tokens.append((VAR, current_token))
                 current_token = ''
-            tokens.append((LAMBDA, char))
+            tokens.append((LAMBDA, 'λ'))
         elif char.isalpha():
             # End the current token if it's not empty and start a new one
             if current_token:
@@ -63,6 +68,10 @@ def lexer(input_string):
 
     return tokens
 
+# @function read_archive
+# @param file_path str
+# @pre file_path is the path to an archive file (zip or tar.gz)
+# @post reads and returns the contents of the archive
 def read_archive(file_path):
     contents = ""  
     _, file_extension = os.path.splitext(file_path)
@@ -86,10 +95,17 @@ def read_archive(file_path):
         raise ValueError(f"Unsupported archive format: {file_extension}")
     return contents
 
-
+# @function parser
+# @param tokens list
+# @pre tokens is a list of token tuples
+# @post returns a parsed expression from the tokens
 def parser(tokens):
     return parse_expr(tokens)
 
+# @function parse_expr
+# @param tokens list
+# @pre tokens is a list of token tuples
+# @post parses the tokens into an expression and returns it
 def parse_expr(tokens):
     if not tokens:
         raise SyntaxError("Unexpected end of input")
@@ -121,11 +137,19 @@ def parse_expr(tokens):
     else:
         raise SyntaxError(f"Unexpected token: {token_type}")
 
+# @function parse_application
+# @param func_expr tuple, tokens list
+# @pre func_expr is a tuple representing a function expression, tokens are the remaining tokens
+# @post parses and returns an application expression
 def parse_application(func_expr, tokens):
     # Parse the argument of the application
     arg_expr = parse_expr(tokens)
     return ('APP', func_expr, arg_expr)
 
+# @function parse_lambda_abstraction
+# @param tokens list
+# @pre tokens is a list of token tuples
+# @post parses and returns a lambda abstraction expression
 def parse_lambda_abstraction(tokens):
     if not tokens or tokens[0][0] != VAR:
         raise SyntaxError("Expected variable after 'λ'")
@@ -137,6 +161,10 @@ def parse_lambda_abstraction(tokens):
     body = parse_expr(tokens)
     return ('LAMBDA', var, body)
 
+# @function alpha_conversion
+# @param expr tuple, var_map dict
+# @pre expr is an expression tuple, var_map is a dictionary for variable mapping
+# @post performs alpha conversion and returns the modified expression
 def alpha_conversion(expr, var_map):
     expr_type = expr[0]
 
@@ -153,6 +181,10 @@ def alpha_conversion(expr, var_map):
 
     raise SyntaxError(f"Invalid expression type: {expr_type}")
 
+# @function beta_reduction
+# @param expr tuple
+# @pre expr is an expression tuple
+# @post performs beta reduction and returns the reduced expression
 def beta_reduction(expr):
     expr_type = expr[0]
 
@@ -173,6 +205,10 @@ def beta_reduction(expr):
 
     raise SyntaxError(f"Invalid expression type: {expr_type}")
 
+# @function substitute
+# @param expr tuple, var str, replacement tuple
+# @pre expr is an expression tuple, var is a variable name, replacement is an expression tuple
+# @post substitutes the variable in expr with the replacement and returns the new expression
 def substitute(expr, var, replacement):
     expr_type = expr[0]
 
@@ -191,6 +227,10 @@ def substitute(expr, var, replacement):
 
     raise SyntaxError(f"Invalid expression type: {expr_type}")
 
+# @function to_standard_format
+# @param expr tuple
+# @pre expr is an expression tuple
+# @post returns the expression in its standard format as a string
 def to_standard_format(expr):
     if expr[0] == VAR:
         return expr[1]
@@ -201,34 +241,55 @@ def to_standard_format(expr):
     else:
         raise TypeError(f"Invalid expression type: {expr[0]}")
 
+# @function output
+# @param expr tuple
+# @pre expr is an expression tuple
+# @post prints the expression in its standard format
 def output(expr):
     standard_format_expr = to_standard_format(expr)
-    print(standard_format_expr)
+    print(f"The reduced expression is {standard_format_expr}")
 
+# @function main
+# @pre program entry point
+# @post reads input, processes it, and outputs the result in standard format
 def main():
-    file_name = input("Enter the name of the archive file (zip or tar.gz): ")
+    if len(sys.argv) > 1:
+        file_name = sys.argv[1]
+        try:
+            contents = read_archive(file_name)
+            lines = contents.splitlines()
+        except Exception as e:
+            print(f"Error reading archive: {e}")
+            return 1
+
+        for line in lines:
+            process_expression(line)
+    else:
+        # Debug mode: process a single expression
+        input_string = input("Enter an expression: ")
+        process_expression(input_string)
+
+# @function process_expression
+# @param input_string str
+# @pre input_string is a string representing an expression
+# @post processes the expression and outputs the result in standard format
+def process_expression(input_string):
     try:
-        contents = read_archive(file_name)
+        tokens = lexer(input_string)
+        expr = parser(tokens)
+        var_map = {}
+        expr = alpha_conversion(expr, var_map)
 
-        for line in contents.splitlines():
-            tokens = lexer(line)
-            expr = parser(tokens)
-            var_map = {}
-            expr = alpha_conversion(expr, var_map)
+        limit = 1000
+        for _ in range(limit):
+            reduced_expr = beta_reduction(expr)
+            if reduced_expr == expr:
+                break
+            expr = reduced_expr
 
-            limit = 1000
-            for _ in range(limit):
-                reduced_expr = beta_reduction(expr)
-                if reduced_expr == expr:
-                    break
-                expr = reduced_expr
-
-            output(expr)
+        output(expr)
     except Exception as e:
-        print(f"Error: {e}")
-        print("Exiting")
-        return 1
-    return 0
+        print(f"Error processing expression '{input_string}': {e}")
 
 if __name__ == '__main__':
     main()

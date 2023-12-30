@@ -1,3 +1,7 @@
+import zipfile
+import os
+import sys
+
 # Token types
 VAR = 'VAR'
 LPAREN = 'LPAREN'
@@ -19,24 +23,29 @@ TOKEN_VALUES = {
     DOT: '.'
 }
 
+# @function lexer
+# @param input_string str
+# @pre input_string is a string containing the expression to be tokenized
+# @post returns a list of tokens derived from the input string
 def lexer(input_string):
     tokens = []
     current_token = ''
 
     for char in input_string:
+        if char.isspace():  # Ignore spaces
+            if current_token:  # End of a token
+                tokens.append((VAR, current_token))
+                current_token = ''
+            continue
+
         if char.isalnum():
             current_token += char
         else:
             if current_token:
                 tokens.append((VAR, current_token))
                 current_token = ''
-
-            if char == '(':
-                tokens.append((LPAREN, char))
-            elif char == ')':
-                tokens.append((RPAREN, char))
-            elif char == 'λ':
-                tokens.append((LAMBDA, char))
+            if char == 'λ' or char == '\\':
+                tokens.append((LAMBDA, 'λ'))
             elif char == ';':
                 tokens.append((SEPARATOR, char))
             elif char == '+':
@@ -46,79 +55,104 @@ def lexer(input_string):
             elif char == '.':
                 tokens.append((DOT, char))
 
-    # Check for the last token if any
-    if current_token:
+    if current_token: 
         tokens.append((VAR, current_token))
 
     return tokens
 
+# @function parser
+# @param tokens list
+# @pre tokens is a list of tuples representing the tokenized input
+# @post returns a parsed expression from the tokens
 def parser(tokens):
     expr = parse_expr(tokens)
     return expr
 
+# @function parse_expr
+# @param tokens list
+# @pre tokens is a list of tuples representing the tokenized input
+# @post parses the tokens into an expression and returns it
 def parse_expr(tokens):
     if not tokens:
         raise SyntaxError("Unexpected end of input")
-    
-    token_type, token_value = tokens[0]
+
+    token_type, token_value = tokens.pop(0)
 
     if token_type == VAR:
-        tokens.pop(0)  # Remove the variable token
-        return (VAR, token_value)  # Return a tuple representing the variable
+        expr = token_value
+        while tokens and tokens[0][0] == VAR:
+            _, next_token_value = tokens.pop(0)
+            expr += next_token_value
+        return (VAR, expr)
 
-    if tokens[0][1] == LPAREN:
-        tokens.pop(0)
-        if not tokens:
-            raise SyntaxError("Expected expression after '('")
-        expr = parse_expr(tokens)
-        if not tokens or tokens[0][1] != RPAREN:
-            raise SyntaxError("Expected ')'")
-        tokens.pop(0)
-        return expr
-
-    if tokens[0][1] == LAMBDA:
-        tokens.pop(0)
-        if not tokens:
+    elif token_type == LAMBDA:
+        if not tokens or tokens[0][0] != VAR:
             raise SyntaxError("Expected variable after 'λ'")
-        var = parse_expr(tokens)
-        if not tokens or tokens[0][1] != LPAREN:
-            raise SyntaxError("Expected '(' after variable in lambda")
-        tokens.pop(0)
-        if not tokens:
-            raise SyntaxError("Expected expression after '(' in lambda")
-        expr = parse_expr(tokens)
-        if not tokens or tokens[0][1] != RPAREN:
-            raise SyntaxError("Expected ')' after lambda expression")
-        tokens.pop(0)
-        return lambda var: expr
+        var_token = tokens.pop(0)
+        if not tokens or tokens[0][0] != DOT:
+            raise SyntaxError("Expected '.' after variable in lambda")
+        tokens.pop(0)  # Remove the '.' token
+        body = parse_expr(tokens)
+        return (LAMBDA, f"λ{var_token[1]}. {body[1]}")
 
-    raise SyntaxError("Unexpected token")
+    elif token_type == LPAREN:
+        func = parse_expr(tokens)
+        if not tokens or tokens[0][0] != RPAREN:
+            raise SyntaxError("Expected ')' after function in application")
+        tokens.pop(0)  # Remove the ')' token
+        if tokens:
+            arg = parse_expr(tokens)
+            return (VAR, f"{func[1]} {arg[1]}")
+        return func
 
-def to_standard_format(expr):
-    if type(expr[1]) == str:
-        return expr[1]
-    elif type(expr[1]) == type(lambda x: x):
-        var = expr[1].__var__
-        expr = expr[1](var)
-        return f"(λ{var}. {expr})"
     else:
-        raise TypeError(f"Invalid expression type: {type(expr[1])}")
+        raise SyntaxError("Unexpected token")
 
+# @function to_standard_format
+# @param expr tuple
+# @pre expr is a tuple representing a parsed expression
+# @post returns the expression in its standard format as a string
+def to_standard_format(expr):
+    return expr[1]
+
+# @function output
+# @param expr tuple
+# @pre expr is a tuple representing a parsed expression
+# @post prints the expression in its standard format
 def output(expr):
     standard_format_expr = to_standard_format(expr)
     print(f"The standard format is: {standard_format_expr}")
 
+# @function read_zip_file
+# @param file_path str
+# @pre file_path is the path to a zip file
+# @post reads and returns the contents of the zip file as a string
+def read_zip_file(file_path):
+    contents = ""
+    with zipfile.ZipFile(file_path, 'r') as zip_file:
+        for file_name in zip_file.namelist():
+            with zip_file.open(file_name) as file:
+                contents += file.read().decode('utf-8') + "\n"
+    return contents
+
+# @function main
+# @pre program entry point
+# @post reads input, processes it, and outputs the result in standard format
 def main():
-    input_string = input("Enter the expression: ")
-    try:
-        tokens = lexer(input_string)
-        expr = parser(tokens)
-        output(expr)
-    except Exception as e:
-        print(f"Error: {e}")
-        print("Exiting")
-        return 1
-    return 0
+    if len(sys.argv) > 1:
+        file_name = sys.argv[1]
+        contents = read_zip_file(file_name)
+        expressions = contents.splitlines()
+    else:
+        expressions = [input("Enter the expression: ")]
+
+    for input_string in expressions:
+        try:
+            tokens = lexer(input_string)
+            expr = parser(tokens)
+            output(expr)
+        except Exception as e:
+            print(f"Error: {e}")
 
 if __name__ == '__main__':
     main()
