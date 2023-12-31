@@ -33,7 +33,7 @@ def lexer(input_string):
     current_token = ''
 
     for char in input_string:
-        print(f"Processing character: {char}")  # Debugging output
+        # print(f"Processing character: {char}")  # Debugging output
 
         if char == 'λ' or char == '\\':
             if current_token:
@@ -76,21 +76,25 @@ def read_archive(file_path):
     contents = ""  
     _, file_extension = os.path.splitext(file_path)
 
+    # Check for '.tar.gz' extension
+    if file_extension == '.gz':
+        base, ext = os.path.splitext(_)
+        if ext == '.tar':
+            file_extension = ext + file_extension
+
     if file_extension == '.zip':
         with zipfile.ZipFile(file_path, 'r') as zip_file:
             for file_name in zip_file.namelist():
-                print(f"Reading file: {file_name}")  # Print the name of the file being read
                 with zip_file.open(file_name) as file:
                     content = file.read().decode('utf-8')
-                    print("File contents:", content)  # Print the contents of the file
                     contents += content
     elif file_extension == '.tar.gz':
         with tarfile.open(file_path, 'r:gz') as tar_file:
             for tar_info in tar_file.getmembers():
                 file = tar_file.extractfile(tar_info)
-                content = file.read().decode('utf-8')
-                print("File contents:", content)  # Print the contents of the file
-                contents += content
+                if file:  # Check if it's not a directory
+                    content = file.read().decode('utf-8')
+                    contents += content
     else:
         raise ValueError(f"Unsupported archive format: {file_extension}")
     return contents
@@ -153,12 +157,10 @@ def parse_application(func_expr, tokens):
 def parse_lambda_abstraction(tokens):
     if not tokens or tokens[0][0] != VAR:
         raise SyntaxError("Expected variable after 'λ'")
+
     var = tokens.pop(0)[1]
+    body = parse_expr(tokens)  # Directly parse the body without expecting a dot
 
-    if not tokens or tokens.pop(0)[0] != DOT:
-        raise SyntaxError("Expected '.' after variable in lambda expression")
-
-    body = parse_expr(tokens)
     return ('LAMBDA', var, body)
 
 # @function alpha_conversion

@@ -26,13 +26,22 @@ make load_file FILE=<inputs>.zip
 
 ```bash
 make load_file FILE=<inputs>.zip
-
 ```
-<p>Alternativaly you could enter debug mode by just running the program as normal:</p>
+<p>Alternativaly you could enter debug mode by just running the program as normal and enter an expression manually:</p>
 
 ```bash
 make run
 ```
 <h3><strong>Assignment 3: λ-calculus type checker</strong></h3>
+<p>The program reads zip files as an input. You could load a .zip file containing expressions and run the program as:</p> 
+
+```bash
+make load_file FILE=<inputs>.zip
+```
+<p>Alternativaly you could enter debug mode by just running the program as normal and enter an expression manually:</p>
+
+```bash
+make run
+```
 
 ### The tested inputs for each assignment can be viewed in "tested.txt"

@@ -13,3 +13,7 @@ Assignment 2:
 (λx λy x)(λz y) f -> λw.λz.y
 (λx y)((λx (x x))(λx (x x))) -> y
 (λx x x)(λx x x) -> xx
+Assignment 3:
+(λx^A (λy^(A->B) (y ((λx^A x) x)))):(A -> ((A -> B) -> B))
+(λx^A x):(A -> A)
+(λx^B (λx^A x)):(B -> (A -> A))

@@ -1,4 +1,5 @@
 import zipfile
+import tarfile
 import os
 import sys
 
@@ -123,16 +124,35 @@ def output(expr):
     standard_format_expr = to_standard_format(expr)
     print(f"The standard format is: {standard_format_expr}")
 
-# @function read_zip_file
+# @function read_archive
 # @param file_path str
-# @pre file_path is the path to a zip file
-# @post reads and returns the contents of the zip file as a string
-def read_zip_file(file_path):
-    contents = ""
-    with zipfile.ZipFile(file_path, 'r') as zip_file:
-        for file_name in zip_file.namelist():
-            with zip_file.open(file_name) as file:
-                contents += file.read().decode('utf-8') + "\n"
+# @pre file_path is the path to an archive file (zip or tar.gz)
+# @post reads and returns the contents of the archive
+def read_archive(file_path):
+    contents = ""  
+    _, file_extension = os.path.splitext(file_path)
+
+    # Check for '.tar.gz' extension
+    if file_extension == '.gz':
+        base, ext = os.path.splitext(_)
+        if ext == '.tar':
+            file_extension = ext + file_extension
+
+    if file_extension == '.zip':
+        with zipfile.ZipFile(file_path, 'r') as zip_file:
+            for file_name in zip_file.namelist():
+                with zip_file.open(file_name) as file:
+                    content = file.read().decode('utf-8')
+                    contents += content
+    elif file_extension == '.tar.gz':
+        with tarfile.open(file_path, 'r:gz') as tar_file:
+            for tar_info in tar_file.getmembers():
+                file = tar_file.extractfile(tar_info)
+                if file:  # Check if it's not a directory
+                    content = file.read().decode('utf-8')
+                    contents += content
+    else:
+        raise ValueError(f"Unsupported archive format: {file_extension}")
     return contents
 
 # @function main
@@ -141,7 +161,7 @@ def read_zip_file(file_path):
 def main():
     if len(sys.argv) > 1:
         file_name = sys.argv[1]
-        contents = read_zip_file(file_name)
+        contents = read_archive(file_name)
         expressions = contents.splitlines()
     else:
         expressions = [input("Enter the expression: ")]
